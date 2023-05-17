@@ -70,10 +70,12 @@ def task_pass():
     print("실행할 Task가 없습니다.")
     return False
 
+# task 수행중 에러났을때
 def task_error():
     print("task에 에러가 있습니다.")
     return False
 
+# 프로세스 완료
 def complete(**kwargs):
     data = kwargs['ti'].xcom_pull(key="data")
     # 상태코드 변경(적요분류 시작)
@@ -154,8 +156,6 @@ def text_classification(**kwargs):
     kwargs['ti'].xcom_push(key='data', value=data)
 
     return 'file_transfer'
-
-
 
 # 웹서버에 파일 전송
 def file_transfer(**kwargs):

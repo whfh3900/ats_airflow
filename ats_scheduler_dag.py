@@ -4,7 +4,6 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator, ShortCircuitOperator
 from ats_schedule_tasks import *
 
-
 default_args = {
     'owner': 'su.choi', # DAG 소유자 이름
     'depends_on_past': False, # DAG의 이전 실행결과에 영향을 받는지 여부
@@ -73,13 +72,6 @@ pass_task = ShortCircuitOperator(
     python_callable=task_pass,
     dag=dag
 )
-
-# task1_2 = PythonOperator(
-#     task_id='task_start',
-#     python_callable=task_start,
-#     provide_context=True,
-#     dag=dag
-# )
 
 error_task = ShortCircuitOperator(
     task_id='task_error',

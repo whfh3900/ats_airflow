@@ -25,7 +25,7 @@ dag = DAG(
     catchup=False, # DAG가 이전에 실행되지 않은 작업을 재실행할 것인지 여부
     description="Read the 'Real?ATS' database and process the tasks that need to be handled in that data sequentially.", # DAG에 대한 설명
     max_active_runs=1, # DAG의 최대 동시 실행 횟수
-    concurrency=2, # DAG의 최대 병렬 실행 횟수를 제한하는 정수 값
+    concurrency=3, # DAG의 최대 병렬 실행 횟수를 제한하는 정수 값
 )
 
 task1 = BranchPythonOperator(

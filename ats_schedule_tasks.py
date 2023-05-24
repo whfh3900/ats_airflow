@@ -21,15 +21,12 @@ def connect_mysql_return_values(**kwargs):
 
     # select 조건문으로 데이터 찾기
     # PRCS_CD가 PRCS_CD가 0110인 row
-    query = "select SEQ_NO, CORP_ID, MODEL_ID, UPLD_FILE_NM, REG_DT from TB_TAGG_HIST_copy where PRCS_CD = '0110' LIMIT 1;"
+    query = "select SEQ_NO, CORP_ID, MODEL_ID, UPLD_FILE_NM from TB_TAGG_HIST where PRCS_CD = '0110' LIMIT 1;"
 
     cursor.execute(query)
     
-    if len(cursor.fetchall()) == 1:
-        # select 조건문으로 데이터 찾기
-        # PRCS_CD가 PRCS_CD가 0110인 row
-        query = "select SEQ_NO, CORP_ID, MODEL_ID, UPLD_FILE_NM, REG_DT from TB_TAGG_HIST_copy where PRCS_CD = '0110' LIMIT 1;"
-        cursor.execute(query)
+    if len(cursor.fetchall()) >= 1:
+        # 맨위에 있는 값
         data = [row for row in cursor.fetchall()][0]
 
         # 연결종료
@@ -41,28 +38,24 @@ def connect_mysql_return_values(**kwargs):
         corp_id = data[1]
         model_id = data[2]
         upld_file_nm = data[3]
-        reg_dt = data[4].strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # local 적요분류 파일경로
-        basename = os.path.basename(data[3])
-        file_path = "/home/manager/django_api/media/%s/%s/%s"%(corp_id, reg_dt, basename)
+        local_path = os.getenv("local_path")
+        local_file_path = os.path.join(local_path, corp_id, upld_file_nm)
 
         data = dict()
         data["SEQ_NO"] = seq_no
         data["CORP_ID"] = corp_id
         data["MODEL_ID"] = model_id
         data["UPLD_FILE_NM"] = upld_file_nm
-        data["REG_DT"] = reg_dt
-        data["FILE_PATH"] = file_path
+        data["LOCAL_FILE_PATH"] = local_file_path
         
         kwargs['ti'].xcom_push(key='data', value=data)
         
         return "text_preprocessing"
     
-    elif len(cursor.fetchall()) == 0:
-        return "task_pass"
     else:
-        return "task_error"
+        return "task_pass"
     
 
 # 실행할 task가 없을때
@@ -87,7 +80,6 @@ def complete(**kwargs):
 # 전처리
 def preprocessing(**kwargs):
     data = kwargs['ti'].xcom_pull(key="data")
-    print(data, type(data))
 
     # 상태코드 변경(전처리 시작)
     data["STATE"] = "0200"
@@ -95,15 +87,14 @@ def preprocessing(**kwargs):
     change_state_code(data["SEQ_NO"], data["STATE"])
     
     # 파일 불러오기
-    # df = read_csv_for_tagging(data["FILE_PATH"])
-    df = pd.read_csv(data["FILE_PATH"], encoding="utf-8-sig")
+    df = pd.read_csv(data["LOCAL_FILE_PATH"], encoding="utf-8-sig")
 
     try:
         # 전처리 시작
         nk = Nickonlpy()
         df["적요"] = df["적요"].apply(lambda x: nk.lambda_preprocessing(x))
         # 전처리된 데이터 덮어쓰기
-        df.to_csv(data["FILE_PATH"], encoding="utf-8-sig", index = False)
+        df.to_csv(data["LOCAL_FILE_PATH"], encoding="utf-8-sig", index = False)
     except Exception as e:
         data["STATE"] = "0211"
         data["MESSAGE"] = "전처리중 알 수 없는 오류가 발생했습니다. %s"%e
@@ -133,14 +124,14 @@ def text_classification(**kwargs):
     change_state_code(data["SEQ_NO"], data["STATE"])
 
     # 파일 불러오기
-    df = read_csv_for_tagging(data["FILE_PATH"])
+    df = read_csv_for_tagging(data["LOCAL_FILE_PATH"])
 
     try:
         # 적요분류 시작
         nwt = NicWordTagging(data['MODEL_ID'])
         df = nwt.split_transaction_df(df)
         # 적요분류된 데이터 덮어쓰기
-        df.to_csv(data["FILE_PATH"], encoding="utf-8-sig", index = False)
+        df.to_csv(data["LOCAL_FILE_PATH"], encoding="utf-8-sig", index = False)
     except Exception as e:
         # 상태코드 변경(적요분류 에러)
         data["STATE"] = "0311"
@@ -160,7 +151,6 @@ def text_classification(**kwargs):
 # 웹서버에 파일 전송
 def file_transfer(**kwargs):
     data = kwargs['ti'].xcom_pull(key="data")
-    print(data, type(data))
 
     # 상태코드 변경(파일전송 시작)
     data["STATE"] = "0500"
@@ -177,16 +167,16 @@ def file_transfer(**kwargs):
                         str(os.getenv("ssh_password")))
         sftp_client = ssh_client.open_sftp()
         
-        basename = os.path.basename(data["UPLD_FILE_NM"])
-        remote_file_path = "/home/manager/work/file/result/"+basename
-        sftp_client.put(data["FILE_PATH"], remote_file_path)
+        remote_tagging_path = os.getenv("remote_tagging_path")
+        remote_file_path = os.path.join(remote_tagging_path, data["UPLD_FILE_NM"])
+        sftp_client.put(data["LOCAL_FILE_PATH"], remote_file_path)
         
         # sftp 및 ssh 닫기
         sftp_client.close()
         ssh_client.close()
         
         # 파일 삭제
-        os.remove(data["FILE_PATH"])
+        os.remove(data["LOCAL_FILE_PATH"])
         
     except Exception as e:
         # 상태코드 변경(파일전송 에러)
@@ -208,7 +198,6 @@ def file_transfer(**kwargs):
 # 파일 삭제
 def file_remove(**kwargs):
     data = kwargs['ti'].xcom_pull(key="data")
-    print(data, type(data))
     
     # 상태코드 변경(파일전송 시작)
     data["STATE"] = "0600"
@@ -226,7 +215,9 @@ def file_remove(**kwargs):
                         str(os.getenv("ssh_password")))
         sftp_client = ssh_client.open_sftp()
         
-        sftp_client.remove(data["UPLD_FILE_NM"])
+        remote_origin_path = os.getenv("remote_origin_path")
+        remote_file_path = os.path.join(remote_origin_path, data["UPLD_FILE_NM"])
+        sftp_client.remove(remote_file_path)
         
         # sftp 및 ssh 닫기
         sftp_client.close()
@@ -257,7 +248,7 @@ def change_state_code(seq_no, prcs_cd):
                                 db=str(os.getenv("mysql_db")), 
                                 charset='utf8')
     cursor = connection.cursor()
-    query = "update TB_TAGG_HIST_copy set PRCS_CD=%s where SEQ_NO=%s;"
+    query = "update TB_TAGG_HIST set PRCS_CD=%s where SEQ_NO=%s;"
     cursor.execute(query, (prcs_cd, seq_no))
     
     # 연결종료
@@ -273,4 +264,4 @@ if __name__ == '__main__':
     data = text_classification(data)
 
     print(data)
-    
+

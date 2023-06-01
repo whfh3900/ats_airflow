@@ -22,17 +22,18 @@ def connect_mysql_return_values(**kwargs):
     # select 조건문으로 데이터 찾기
     # PRCS_CD가 PRCS_CD가 0110인 row
     query = "select SEQ_NO, CORP_ID, MODEL_ID, UPLD_FILE_NM from TB_TAGG_HIST where PRCS_CD = '0110' LIMIT 1;"
-
     cursor.execute(query)
     
-    if len(cursor.fetchall()) >= 1:
+    data = [row for row in cursor.fetchall()]
+    # 연결종료
+    connection.commit()
+    connection.close()
+
+    # print("-----------------------info-----------------------", data, len(data))
+    if len(data) == 1:
         # 맨위에 있는 값
-        data = [row for row in cursor.fetchall()][0]
-
-        # 연결종료
-        connection.commit()
-        connection.close()
-
+        data = data[0]
+        
         # 데이터 정의
         seq_no = data[0]
         corp_id = data[1]
@@ -169,6 +170,7 @@ def file_transfer(**kwargs):
         
         remote_tagging_path = os.getenv("remote_tagging_path")
         remote_file_path = os.path.join(remote_tagging_path, data["UPLD_FILE_NM"])
+        # print("--------info------------", data["LOCAL_FILE_PATH"], remote_file_path)
         sftp_client.put(data["LOCAL_FILE_PATH"], remote_file_path)
         
         # sftp 및 ssh 닫기

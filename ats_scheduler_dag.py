@@ -7,7 +7,7 @@ from ats_schedule_tasks import *
 default_args = {
     'owner': 'su.choi', # DAG 소유자 이름
     'depends_on_past': False, # DAG의 이전 실행결과에 영향을 받는지 여부
-    'start_date': datetime(2023, 4, 28), # DAG가 시작될 시간을 나타내는 datetime 객체. 필수.
+    'start_date': datetime(2023, 6, 1, 16, 18, 0), # DAG가 시작될 시간을 나타내는 datetime 객체. 필수.
     'retries': 1, # DAG 실행이 실패한 경우 재시도할 횟수
     'retry_delay': timedelta(minutes=10), # DAG 실행이 실패했을 때 재시도 간격을 나타내는 timedelta 객체
     'email': 'su.choi@niccompany.co.kr', # DAG에 관련된 이메일 주소

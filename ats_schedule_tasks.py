@@ -29,7 +29,6 @@ def connect_mysql_return_values(**kwargs):
     connection.commit()
     connection.close()
 
-    # print("-----------------------info-----------------------", data, len(data))
     if len(data) == 1:
         # 맨위에 있는 값
         data = data[0]
@@ -75,7 +74,7 @@ def complete(**kwargs):
     # 상태코드 변경(적요분류 시작)
     data["STATE"] = "0700"
     data["MESSAGE"] = "모든 프로세스가 종료되었습니다."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
     print(data["MESSAGE"])
 
 # 전처리
@@ -85,7 +84,7 @@ def preprocessing(**kwargs):
     # 상태코드 변경(전처리 시작)
     data["STATE"] = "0200"
     data["MESSAGE"] = "전처리를 시작합니다."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
     
     # 파일 불러오기
     df = pd.read_csv(data["LOCAL_FILE_PATH"], encoding="utf-8-sig")
@@ -100,14 +99,14 @@ def preprocessing(**kwargs):
         data["STATE"] = "0211"
         data["MESSAGE"] = "전처리중 알 수 없는 오류가 발생했습니다. %s"%e
         # 상태코드 변경(전처리 에러)
-        change_state_code(data["SEQ_NO"], data["STATE"])
+        change_mysql_data(data["SEQ_NO"], data["STATE"])
         return 'task_error'
 
     # 상태코드 변경
     data["STATE"] = "0210"
     data["MESSAGE"] = "전처리를 성공적으로 끝마쳤습니다."
     # 상태코드 변경(전처리 완료)
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
     
     kwargs['ti'].xcom_push(key='data', value=data)
     
@@ -122,10 +121,10 @@ def text_classification(**kwargs):
     # 상태코드 변경(적요분류 시작)
     data["STATE"] = "0300"
     data["MESSAGE"] = "적요분류를 시작합니다."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
 
     # 파일 불러오기
-    df = read_csv_for_tagging(data["LOCAL_FILE_PATH"])
+    df = pd.read_csv(data["LOCAL_FILE_PATH"], encoding="utf-8-sig")
 
     try:
         # 적요분류 시작
@@ -137,13 +136,13 @@ def text_classification(**kwargs):
         # 상태코드 변경(적요분류 에러)
         data["STATE"] = "0311"
         data["MESSAGE"] = "적요분류중 알 수 없는 오류가 발생했습니다. %s"%e
-        change_state_code(data["SEQ_NO"], data["STATE"])
+        change_mysql_data(data["SEQ_NO"], data["STATE"])
         return 'task_error'
 
     # 상태코드 변경(적요분류 완료)
     data["STATE"] = "0310"
     data["MESSAGE"] = "적요분류를 성공적으로 끝마쳤습니다."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
     
     kwargs['ti'].xcom_push(key='data', value=data)
 
@@ -156,7 +155,7 @@ def file_transfer(**kwargs):
     # 상태코드 변경(파일전송 시작)
     data["STATE"] = "0500"
     data["MESSAGE"] = "파일전송을 시작합니다."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
     
     try:
         # ssh 접속 및 sftp 열기
@@ -170,7 +169,6 @@ def file_transfer(**kwargs):
         
         remote_tagging_path = os.getenv("remote_tagging_path")
         remote_file_path = os.path.join(remote_tagging_path, data["UPLD_FILE_NM"])
-        # print("--------info------------", data["LOCAL_FILE_PATH"], remote_file_path)
         sftp_client.put(data["LOCAL_FILE_PATH"], remote_file_path)
         
         # sftp 및 ssh 닫기
@@ -185,13 +183,15 @@ def file_transfer(**kwargs):
         data["STATE"] = "0511"
         data["MESSAGE"] = "파일전송중 알 수 없는 오류가 발생했습니다. %s"%e
         print(data["MESSAGE"])
-        change_state_code(data["SEQ_NO"], data["STATE"])
+        change_mysql_data(data["SEQ_NO"], data["STATE"])
         return 'task_error'
 
     # 상태코드 변경(파일전송 완료)
     data["STATE"] = "0510"
     data["MESSAGE"] = "파일전송 완료."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    
+    rsult_file_nm = os.path.basename(data["LOCAL_FILE_PATH"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"], rsult_file_nm)
     kwargs['ti'].xcom_push(key='data', value=data)
 
     return "file_remove"
@@ -204,8 +204,7 @@ def file_remove(**kwargs):
     # 상태코드 변경(파일전송 시작)
     data["STATE"] = "0600"
     data["MESSAGE"] = "파일삭제를 시작합니다."
-    change_state_code(data["SEQ_NO"], data["STATE"])
-
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
 
     try:
         # ssh 접속 및 sftp 열기
@@ -230,19 +229,19 @@ def file_remove(**kwargs):
         data["STATE"] = "0611"
         data["MESSAGE"] = "파일삭제중 알 수 없는 오류가 발생했습니다. %s"%e
         print(data["MESSAGE"])
-        change_state_code(data["SEQ_NO"], data["STATE"])
+        change_mysql_data(data["SEQ_NO"], data["STATE"])
         return 'task_error'
 
     # 상태코드 변경(파일전송 시작)
     data["STATE"] = "0610"
     data["MESSAGE"] = "파일삭제 완료."
-    change_state_code(data["SEQ_NO"], data["STATE"])
+    change_mysql_data(data["SEQ_NO"], data["STATE"])
     kwargs['ti'].xcom_push(key='data', value=data)
 
     return 'complete'
 
 # PRCS_CD 변경
-def change_state_code(seq_no, prcs_cd):
+def change_mysql_data(seq_no, prcs_cd, rsult_file_nm=None):
     # mysql 접속
     connection = pymysql.connect(host=str(os.getenv("mysql_host")), 
                                 user=str(os.getenv("mysql_user")), 
@@ -250,9 +249,12 @@ def change_state_code(seq_no, prcs_cd):
                                 db=str(os.getenv("mysql_db")), 
                                 charset='utf8')
     cursor = connection.cursor()
-    query = "update TB_TAGG_HIST set PRCS_CD=%s where SEQ_NO=%s;"
-    cursor.execute(query, (prcs_cd, seq_no))
-    
+    if isinstance(rsult_file_nm, type(None)):
+        query = "update TB_TAGG_HIST set PRCS_CD=%s where SEQ_NO=%s;"
+        cursor.execute(query, (prcs_cd, seq_no))
+    else:
+        query = "update TB_TAGG_HIST set PRCS_CD=%s, RSULT_FILE_NM=%s where SEQ_NO=%s;"
+        cursor.execute(query, (prcs_cd, seq_no, rsult_file_nm))    
     # 연결종료
     connection.commit()
     connection.close()

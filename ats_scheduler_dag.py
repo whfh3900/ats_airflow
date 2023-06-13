@@ -24,8 +24,8 @@ default_args = {
 dag = DAG(
     'ATS_SCHEDULER', # DAG의 고유한 식별자
     default_args=default_args, # DAG에 적용될 기본 변수를 정의한 사전(dict)
-    schedule_interval='*/10 * * * *', #  DAG가 스케줄러에 의해 실행될 간격을 정의합니다. 예를 들어, schedule_interval='@daily'으로 설정하면 DAG는 매일 한번씩 실행됩니다.
-    # schedule_interval=None, #  DAG가 스케줄러에 의해 실행될 간격을 정의합니다. 예를 들어, schedule_interval='@daily'으로 설정하면 DAG는 매일 한번씩 실행됩니다.
+    # schedule_interval='*/10 * * * *', #  DAG가 스케줄러에 의해 실행될 간격을 정의합니다. 예를 들어, schedule_interval='@daily'으로 설정하면 DAG는 매일 한번씩 실행됩니다.
+    schedule_interval=None, #  DAG가 스케줄러에 의해 실행될 간격을 정의합니다. 예를 들어, schedule_interval='@daily'으로 설정하면 DAG는 매일 한번씩 실행됩니다.
     catchup=True, # DAG가 이전에 실행되지 않은 작업을 재실행할 것인지 여부
     description="Read the 'Real?ATS' database and process the tasks that need to be handled in that data sequentially.", # DAG에 대한 설명
     max_active_runs=1, # DAG의 최대 동시 실행 횟수

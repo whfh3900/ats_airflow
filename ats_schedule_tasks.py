@@ -191,6 +191,7 @@ def file_transfer(**kwargs):
     data["MESSAGE"] = "파일전송 완료."
     
     rsult_file_nm = os.path.basename(data["LOCAL_FILE_PATH"])
+    print(rsult_file_nm)
     change_mysql_data(data["SEQ_NO"], data["STATE"], rsult_file_nm)
     kwargs['ti'].xcom_push(key='data', value=data)
 
@@ -254,7 +255,7 @@ def change_mysql_data(seq_no, prcs_cd, rsult_file_nm=None):
         cursor.execute(query, (prcs_cd, seq_no))
     else:
         query = "update TB_TAGG_HIST set PRCS_CD=%s, RSULT_FILE_NM=%s where SEQ_NO=%s;"
-        cursor.execute(query, (prcs_cd, seq_no, rsult_file_nm))    
+        cursor.execute(query, (prcs_cd, rsult_file_nm, seq_no))    
     # 연결종료
     connection.commit()
     connection.close()

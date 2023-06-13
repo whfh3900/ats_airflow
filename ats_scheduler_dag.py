@@ -1,15 +1,18 @@
 from datetime import datetime, timedelta
+import airflow
 from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator, ShortCircuitOperator
 from ats_schedule_tasks import *
 
+START_DATE = airflow.utils.dates.days_ago(1)
+
 default_args = {
     'owner': 'su.choi', # DAG 소유자 이름
     'depends_on_past': False, # DAG의 이전 실행결과에 영향을 받는지 여부
-    'start_date': datetime(2023, 6, 8, 16, 00, 0), # DAG가 시작될 시간을 나타내는 datetime 객체. 필수.
-    'retries': 1, # DAG 실행이 실패한 경우 재시도할 횟수
-    'retry_delay': timedelta(minutes=10), # DAG 실행이 실패했을 때 재시도 간격을 나타내는 timedelta 객체
+    'start_date': START_DATE, # DAG가 시작될 시간을 나타내는 datetime 객체. 필수.
+    'retries': 3, # DAG 실행이 실패한 경우 재시도할 횟수
+    'retry_delay': timedelta(minutes=5), # DAG 실행이 실패했을 때 재시도 간격을 나타내는 timedelta 객체
     'email': 'su.choi@niccompany.co.kr', # DAG에 관련된 이메일 주소
     'email_on_failure': False, # DAG 실행이 실패했을 때 이메일을 보낼지 여부
     'email_on_retry': False, # DAG 실행이 재시도될 때 이메일을 보낼지 여부
@@ -22,6 +25,7 @@ dag = DAG(
     'ATS_SCHEDULER', # DAG의 고유한 식별자
     default_args=default_args, # DAG에 적용될 기본 변수를 정의한 사전(dict)
     schedule_interval='*/10 * * * *', #  DAG가 스케줄러에 의해 실행될 간격을 정의합니다. 예를 들어, schedule_interval='@daily'으로 설정하면 DAG는 매일 한번씩 실행됩니다.
+    # schedule_interval=None, #  DAG가 스케줄러에 의해 실행될 간격을 정의합니다. 예를 들어, schedule_interval='@daily'으로 설정하면 DAG는 매일 한번씩 실행됩니다.
     catchup=True, # DAG가 이전에 실행되지 않은 작업을 재실행할 것인지 여부
     description="Read the 'Real?ATS' database and process the tasks that need to be handled in that data sequentially.", # DAG에 대한 설명
     max_active_runs=1, # DAG의 최대 동시 실행 횟수
